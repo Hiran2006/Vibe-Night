@@ -11,10 +11,12 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
             background: linear-gradient(135deg, #1e3c72, #2a5298);
             color: white;
+            position: relative;
+            overflow-x: hidden;
         }
         .container {
             text-align: center;
@@ -40,6 +42,140 @@
             background: rgba(255, 255, 255, 0.1);
             border-radius: 8px;
         }
+        
+        .mood-popup {
+            position: fixed;
+            right: 30px;
+            top: 50%;
+            transform: translateY(-50%) scale(0.9);
+            background: linear-gradient(145deg, #ffffff, #f0f2ff);
+            color: #2c3e50;
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.05);
+            max-width: 240px;
+            text-align: center;
+            z-index: 1000;
+            animation: slideIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: none;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
+            opacity: 0;
+        }
+        
+        .mood-popup h3 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+            font-size: 1.4em;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            position: relative;
+            display: inline-block;
+        }
+        
+        .mood-popup h3:after {
+            content: '';
+            position: absolute;
+            width: 40%;
+            height: 3px;
+            background: linear-gradient(90deg, #6a11cb 0%, #2575fc 100%);
+            bottom: -8px;
+            left: 30%;
+            border-radius: 2px;
+        }
+        
+        .mood-comment {
+            font-size: 1.1em;
+            line-height: 1.5;
+            color: #2c3e50;
+            margin: 15px 0;
+            padding: 15px 20px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            text-align: center;
+            font-style: italic;
+        }
+        
+        .mood-opposite:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #6a11cb 0%, #2575fc 100%);
+            transform: scaleX(0);
+            transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
+        }
+        
+        .mood-popup.visible {
+            opacity: 1;
+            transform: translateY(-50%) scale(1);
+        }
+        
+        .pulse {
+            animation: pulse 0.8s cubic-bezier(0.4, 0, 0.6, 1);
+        }
+        
+        .mood-emoji {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            display: block;
+            transition: all 0.3s ease;
+        }
+        
+        .mood-popup p {
+            color: #7f8c8d;
+            margin: 15px 0 0;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+        
+        .progress-bar {
+            height: 4px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 2px;
+            margin-top: 15px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #6a11cb 0%, #2575fc 100%);
+            transition: width 0.1s linear;
+            border-radius: 2px;
+        }
+        
+        @keyframes pulse {
+            0% { transform: translateY(-50%) scale(1); }
+            50% { transform: translateY(-50%) scale(1.05); }
+            100% { transform: translateY(-50%) scale(1); }
+        }
+        
+        @keyframes slideIn {
+            0% {
+                transform: translateX(100%) translateY(-50%) scale(0.8);
+                opacity: 0;
+            }
+            50% {
+                transform: translateX(-5%) translateY(-50%) scale(1.05);
+                opacity: 0.9;
+            }
+            100% {
+                transform: translateX(0) translateY(-50%) scale(1);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body>
@@ -47,11 +183,161 @@
         <h1>Mood Opposite Detector</h1>
         <div class="video-container">
             <img id="videoFeed" src="{{ url_for('video_feed') }}" alt="Video Feed">
-        </div>
+            <div class="mood-popup" id="moodPopup">
+                <span class="mood-emoji" id="moodEmoji">😊</span>
+                <h3>Emotion Boost</h3>
+                <div class="mood-comment" id="moodComment">Your emotions make you unique and special!</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
         <div class="info">
             <p>This app detects your current emotion and suggests the opposite mood to balance your feelings.</p>
             <p>Look at the camera and see what emotion you should try to feel!</p>
         </div>
     </div>
+    <script>
+        // Emoji and comment mapping for emotions
+        const emotionData = {
+            'happy': {
+                emoji: '😊',
+                comment: 'Your smile is contagious! Keep spreading the joy!' 
+            },
+            'sad': {
+                emoji: '😢',
+                comment: 'Every cloud has a silver lining. Better days are ahead!'
+            },
+            'angry': {
+                emoji: '😠',
+                comment: 'Take a deep breath. You\'ve got this under control!'
+            },
+            'calm': {
+                emoji: '😌',
+                comment: 'Your peaceful energy is truly inspiring!'
+            },
+            'disgust': {
+                emoji: '🤢',
+                comment: 'Yuck! Let\'s find something more pleasant to focus on!'
+            },
+            'delight': {
+                'emoji': '😄',
+                'comment': 'Your happiness is lighting up the room!'
+            },
+            'fear': {
+                emoji: '😨',
+                comment: 'Courage isn\'t the absence of fear, but the triumph over it!'
+            },
+            'courage': {
+                emoji: '🦁',
+                comment: 'Your bravery is truly inspiring!'
+            },
+            'surprise': {
+                emoji: '😲',
+                comment: 'Life is full of wonderful surprises, just like you!'
+            },
+            'expectation': {
+                emoji: '🤔',
+                comment: 'Great things come to those who wait...'
+            },
+            'neutral': {
+                emoji: '😐',
+                comment: 'Take a moment to reflect on what makes you happy!'
+            },
+            'excitement': {
+                emoji: '🎉',
+                comment: 'Your energy is electrifying!'
+            }
+        };
+        
+        // Default values
+        const defaultEmotion = {
+            emoji: '✨',
+            comment: 'Your emotions make you unique and special!'
+        };
+
+        // Function to update the mood popup with comment
+        function updateMoodPopup(emotion) {
+            const popup = document.getElementById('moodPopup');
+            const moodComment = document.getElementById('moodComment');
+            const moodEmoji = document.getElementById('moodEmoji');
+            const progressFill = document.getElementById('progressFill');
+            
+            if (emotion && emotion !== '') {
+                // Reset and animate progress bar
+                progressFill.style.width = '0%';
+                setTimeout(() => {
+                    progressFill.style.width = '100%';
+                }, 10);
+                
+                // Get emotion data or use defaults
+                const emotionKey = emotion.toLowerCase();
+                const currentEmotion = emotionData[emotionKey] || defaultEmotion;
+                
+                // Update emoji and comment
+                moodEmoji.textContent = currentEmotion.emoji;
+                moodComment.textContent = currentEmotion.comment;
+                
+                // Show popup with animation
+                popup.style.display = 'block';
+                setTimeout(() => {
+                    popup.classList.add('visible');
+                }, 10);
+                
+                // Add pulse animation
+                popup.classList.add('pulse');
+                setTimeout(() => {
+                    popup.classList.remove('pulse');
+                }, 800);
+            } else {
+                // Hide popup with animation
+                popup.classList.remove('visible');
+                setTimeout(() => {
+                    popup.style.display = 'none';
+                }, 300);
+            }
+        }
+        
+        let lastUpdateTime = 0;
+        const UPDATE_INTERVAL = 5000; // Show popup every 5 seconds
+        let isPopupVisible = false;
+        
+        // Function to show the popup with emotion
+        function showEmotionPopup(emotion) {
+            if (emotion && emotion !== '') {
+                updateMoodPopup(emotion);
+                isPopupVisible = true;
+                
+                // Hide the popup after 3 seconds
+                setTimeout(() => {
+                    updateMoodPopup('');
+                    isPopupVisible = false;
+                    lastUpdateTime = Date.now();
+                }, 3000);
+            }
+        }
+
+        // Function to fetch the latest emotion data
+        async function fetchEmotionData() {
+            try {
+                const response = await fetch('/get_emotion');
+                const data = await response.json();
+                
+                // Only update if we have a valid emotion and it's time to show the popup
+                const currentTime = Date.now();
+                if (data && data.opposite && !isPopupVisible && 
+                    (currentTime - lastUpdateTime) >= UPDATE_INTERVAL) {
+                    showEmotionPopup(data.opposite);
+                }
+            } catch (error) {
+                console.error('Error fetching emotion data:', error);
+            }
+        }
+        
+        // Check for emotion updates every second
+        setInterval(fetchEmotionData, 1000);
+        
+        // Initial fetch
+        fetchEmotionData();
+    </script>
 </body>
 </html>

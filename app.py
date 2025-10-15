@@ -1,6 +1,8 @@
-from flask import Flask, render_template, Response
+from flask import Flask, render_template, Response, jsonify, request
 import cv2
 from deepface import DeepFace
+import json
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -18,7 +20,15 @@ EMOTION_OPPOSITES = {
 def get_opposite_emotion(emotion):
     return EMOTION_OPPOSITES.get(emotion.lower(), 'neutral')
 
+# Global variable to store the latest emotion data
+latest_emotion_data = {
+    'emotion': '',
+    'opposite': '',
+    'timestamp': None
+}
+
 def gen_frames():
+    global latest_emotion_data
     cap = cv2.VideoCapture(0)
     while True:
         success, frame = cap.read()
@@ -31,6 +41,13 @@ def gen_frames():
             if result and len(result) > 0:
                 emotion = result[0]['dominant_emotion']
                 opposite = get_opposite_emotion(emotion)
+                
+                # Update the latest emotion data
+                latest_emotion_data = {
+                    'emotion': emotion,
+                    'opposite': opposite,
+                    'timestamp': datetime.now().isoformat()
+                }
                 
                 # Draw rectangle and text
                 x, y, w, h = result[0]['region']['x'], result[0]['region']['y'], result[0]['region']['w'], result[0]['region']['h']
@@ -55,6 +72,10 @@ def index():
 def video_feed():
     return Response(gen_frames(), 
                    mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/get_emotion')
+def get_emotion():
+    return jsonify(latest_emotion_data)
 
 if __name__ == '__main__':
     app.run(debug=True)
